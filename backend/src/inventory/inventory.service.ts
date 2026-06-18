@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan } from 'typeorm';
+import { Repository, MoreThan, Between } from 'typeorm';
 import { Inventory, InventoryType, InventorySource } from './inventory.entity';
 import { CreateInventoryDto } from './dto/create-inventory.dto';
 
@@ -55,18 +55,42 @@ export class InventoryService {
     sku?: string,
     type?: InventoryType,
     source?: InventorySource,
+    relatedOrderNo?: string,
+    relatedShipmentNo?: string,
+    relatedAfterSaleNo?: string,
+    startDate?: string,
+    endDate?: string,
   ): Promise<{ data: Inventory[]; total: number }> {
     const query = this.inventoryRepository.createQueryBuilder('inventory')
       .orderBy('inventory.createdAt', 'DESC');
 
     if (sku) {
-      query.where('inventory.sku LIKE :sku', { sku: `%${sku}%` });
+      query.andWhere('inventory.sku LIKE :sku', { sku: `%${sku}%` });
     }
     if (type) {
       query.andWhere('inventory.type = :type', { type });
     }
     if (source) {
       query.andWhere('inventory.source = :source', { source });
+    }
+    if (relatedOrderNo) {
+      query.andWhere('inventory.relatedOrderNo LIKE :relatedOrderNo', { relatedOrderNo: `%${relatedOrderNo}%` });
+    }
+    if (relatedShipmentNo) {
+      query.andWhere('inventory.relatedShipmentNo LIKE :relatedShipmentNo', { relatedShipmentNo: `%${relatedShipmentNo}%` });
+    }
+    if (relatedAfterSaleNo) {
+      query.andWhere('inventory.relatedAfterSaleNo LIKE :relatedAfterSaleNo', { relatedAfterSaleNo: `%${relatedAfterSaleNo}%` });
+    }
+    if (startDate && endDate) {
+      query.andWhere('inventory.createdAt BETWEEN :startDate AND :endDate', {
+        startDate: new Date(startDate),
+        endDate: new Date(endDate + ' 23:59:59'),
+      });
+    } else if (startDate) {
+      query.andWhere('inventory.createdAt >= :startDate', { startDate: new Date(startDate) });
+    } else if (endDate) {
+      query.andWhere('inventory.createdAt <= :endDate', { endDate: new Date(endDate + ' 23:59:59') });
     }
 
     const [data, total] = await query
@@ -75,6 +99,25 @@ export class InventoryService {
       .getManyAndCount();
 
     return { data, total };
+  }
+
+  async getHistoryBySku(
+    sku: string,
+    page: number = 1,
+    pageSize: number = 20,
+  ): Promise<{ data: Inventory[]; total: number; currentStock: number }> {
+    const currentStock = await this.getCurrentStock(sku);
+
+    const query = this.inventoryRepository.createQueryBuilder('inventory')
+      .where('inventory.sku = :sku', { sku })
+      .orderBy('inventory.createdAt', 'DESC');
+
+    const [data, total] = await query
+      .skip((page - 1) * pageSize)
+      .take(pageSize)
+      .getManyAndCount();
+
+    return { data, total, currentStock };
   }
 
   async findOne(id: number): Promise<Inventory> {

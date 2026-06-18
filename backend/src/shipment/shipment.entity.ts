@@ -46,6 +46,15 @@ export class Shipment {
   @Column('int')
   itemsCount: number;
 
+  @Column({ nullable: true })
+  sku: string;
+
+  @Column({ nullable: true })
+  productName: string;
+
+  @Column('int', { nullable: true })
+  quantity: number;
+
   @Column({
     type: 'simple-enum',
     enum: ShipmentStatus,

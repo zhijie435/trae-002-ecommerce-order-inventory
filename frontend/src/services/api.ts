@@ -40,7 +40,18 @@ export const orderApi = {
 };
 
 export const inventoryApi = {
-  getList: (params: { page?: number; pageSize?: number; sku?: string; type?: InventoryType; source?: InventorySource }) =>
+  getList: (params: { 
+    page?: number; 
+    pageSize?: number; 
+    sku?: string; 
+    type?: InventoryType; 
+    source?: InventorySource;
+    relatedOrderNo?: string;
+    relatedShipmentNo?: string;
+    relatedAfterSaleNo?: string;
+    startDate?: string;
+    endDate?: string;
+  }) =>
     api.get<PageResult<Inventory>>('/inventory', { params }),
   
   getDetail: (id: number) =>
@@ -57,6 +68,9 @@ export const inventoryApi = {
   
   getStockBySku: (sku: string) =>
     api.get<number>(`/inventory/sku/${sku}`),
+
+  getHistoryBySku: (sku: string, params: { page?: number; pageSize?: number }) =>
+    api.get<{ data: Inventory[]; total: number; currentStock: number }>(`/inventory/history/${sku}`, { params }),
 };
 
 export const shipmentApi = {
@@ -83,9 +97,6 @@ export const shipmentApi = {
   
   cancel: (id: number) =>
     api.post<Shipment>(`/shipments/${id}/cancel`),
-  
-  shipWithInventory: (id: number, data: { sku: string; productName: string; quantity: number }) =>
-    api.post<Shipment>(`/shipments/${id}/ship-with-inventory`, data),
 };
 
 export const afterSaleApi = {

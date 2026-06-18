@@ -53,14 +53,4 @@ export class ShipmentController {
   cancel(@Param('id') id: string): Promise<Shipment> {
     return this.shipmentService.cancel(+id);
   }
-
-  @Post(':id/ship-with-inventory')
-  shipWithInventory(
-    @Param('id') id: string,
-    @Body('sku') sku: string,
-    @Body('productName') productName: string,
-    @Body('quantity') quantity: number,
-  ): Promise<Shipment> {
-    return this.shipmentService.shipWithInventory(+id, sku, productName, quantity);
-  }
 }

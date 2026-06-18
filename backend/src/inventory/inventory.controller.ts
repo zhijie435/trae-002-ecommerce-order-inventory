@@ -20,8 +20,33 @@ export class InventoryController {
     @Query('sku') sku?: string,
     @Query('type') type?: InventoryType,
     @Query('source') source?: InventorySource,
+    @Query('relatedOrderNo') relatedOrderNo?: string,
+    @Query('relatedShipmentNo') relatedShipmentNo?: string,
+    @Query('relatedAfterSaleNo') relatedAfterSaleNo?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
   ): Promise<{ data: Inventory[]; total: number }> {
-    return this.inventoryService.findAll(parseInt(page), parseInt(pageSize), sku, type, source);
+    return this.inventoryService.findAll(
+      parseInt(page),
+      parseInt(pageSize),
+      sku,
+      type,
+      source,
+      relatedOrderNo,
+      relatedShipmentNo,
+      relatedAfterSaleNo,
+      startDate,
+      endDate,
+    );
+  }
+
+  @Get('history/:sku')
+  getHistoryBySku(
+    @Param('sku') sku: string,
+    @Query('page') page: string = '1',
+    @Query('pageSize') pageSize: string = '20',
+  ): Promise<{ data: Inventory[]; total: number; currentStock: number }> {
+    return this.inventoryService.getHistoryBySku(sku, parseInt(page), parseInt(pageSize));
   }
 
   @Get('summary')

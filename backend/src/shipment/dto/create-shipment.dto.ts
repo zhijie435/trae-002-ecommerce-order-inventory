@@ -20,6 +20,18 @@ export class CreateShipmentDto {
   itemsCount: number;
 
   @IsOptional()
+  @IsString()
+  sku?: string;
+
+  @IsOptional()
+  @IsString()
+  productName?: string;
+
+  @IsOptional()
+  @IsNumber()
+  quantity?: number;
+
+  @IsOptional()
   @IsEnum(ShipmentStatus)
   status?: ShipmentStatus;
 

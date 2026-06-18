@@ -88,6 +88,20 @@ export class ShipmentService {
       throw new BadRequestException('只有待发货状态的订单才能发货');
     }
 
+    if (shipment.sku && shipment.productName && shipment.quantity) {
+      await this.inventoryService.create({
+        sku: shipment.sku,
+        productName: shipment.productName,
+        quantity: shipment.quantity,
+        type: InventoryType.OUT,
+        source: InventorySource.SHIPMENT,
+        relatedOrderNo: shipment.order?.orderNo,
+        relatedShipmentNo: shipment.shipmentNo,
+        operator: shipment.operator,
+        remark: `订单发货出库 - ${shipment.shipmentNo}`,
+      });
+    }
+
     shipment.status = ShipmentStatus.SHIPPED;
     shipment.shippedAt = new Date();
 
@@ -118,26 +132,25 @@ export class ShipmentService {
       throw new BadRequestException('该状态的发货单无法取消');
     }
 
+    const wasShipped = shipment.status === ShipmentStatus.SHIPPED;
     shipment.status = ShipmentStatus.CANCELLED;
 
-    return this.shipmentRepository.save(shipment);
-  }
+    const savedShipment = await this.shipmentRepository.save(shipment);
 
-  async shipWithInventory(id: number, sku: string, productName: string, quantity: number): Promise<Shipment> {
-    const shipment = await this.ship(id);
+    if (wasShipped && shipment.sku && shipment.productName && shipment.quantity) {
+      await this.inventoryService.create({
+        sku: shipment.sku,
+        productName: shipment.productName,
+        quantity: shipment.quantity,
+        type: InventoryType.IN,
+        source: InventorySource.SHIPMENT,
+        relatedOrderNo: shipment.order?.orderNo,
+        relatedShipmentNo: shipment.shipmentNo,
+        operator: shipment.operator,
+        remark: `取消发货回库 - ${shipment.shipmentNo}`,
+      });
+    }
 
-    await this.inventoryService.create({
-      sku,
-      productName,
-      quantity,
-      type: InventoryType.OUT,
-      source: InventorySource.SHIPMENT,
-      relatedOrderNo: shipment.order.orderNo,
-      relatedShipmentNo: shipment.shipmentNo,
-      operator: shipment.operator,
-      remark: `订单发货出库 - ${shipment.shipmentNo}`,
-    });
-
-    return shipment;
+    return savedShipment;
   }
 }

@@ -94,6 +94,9 @@ export interface Shipment {
   logisticsCompany: LogisticsCompany;
   trackingNo: string;
   itemsCount: number;
+  sku?: string;
+  productName?: string;
+  quantity?: number;
   status: ShipmentStatus;
   shippedAt?: string;
   deliveredAt?: string;
