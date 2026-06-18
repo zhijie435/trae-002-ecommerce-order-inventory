@@ -17,8 +17,9 @@ import {
   DatePicker,
   Drawer,
   Descriptions,
+  Switch,
 } from 'antd';
-import { PlusOutlined, StockOutlined, ArrowUpOutlined, ArrowDownOutlined, HistoryOutlined } from '@ant-design/icons';
+import { PlusOutlined, StockOutlined, HistoryOutlined, WarningOutlined } from '@ant-design/icons';
 import type { Inventory, InventoryType, InventorySource, StockSummary } from '../types';
 import { inventoryApi } from '../services/api';
 import { inventoryTypeMap, inventorySourceMap } from '../utils/enumMaps';
@@ -39,9 +40,13 @@ const InventoryList: React.FC = () => {
   const [sourceFilter, setSourceFilter] = useState<InventorySource | undefined>();
   const [skuFilter, setSkuFilter] = useState<string>('');
   const [orderNoFilter, setOrderNoFilter] = useState<string>('');
+  const [shipmentNoFilter, setShipmentNoFilter] = useState<string>('');
+  const [afterSaleNoFilter, setAfterSaleNoFilter] = useState<string>('');
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [stockSummary, setStockSummary] = useState<StockSummary[]>([]);
+  const [lowStockFilter, setLowStockFilter] = useState<boolean>(false);
+  const [lowStockThreshold] = useState<number>(10);
   const [form] = Form.useForm();
 
   const [skuDrawerVisible, setSkuDrawerVisible] = useState(false);
@@ -55,8 +60,11 @@ const InventoryList: React.FC = () => {
 
   useEffect(() => {
     fetchRecords();
+  }, [page, pageSize, typeFilter, sourceFilter, skuFilter, orderNoFilter, shipmentNoFilter, afterSaleNoFilter, dateRange]);
+
+  useEffect(() => {
     fetchStockSummary();
-  }, [page, pageSize, typeFilter, sourceFilter, skuFilter, orderNoFilter, dateRange]);
+  }, [lowStockFilter, lowStockThreshold]);
 
   const fetchRecords = async () => {
     setLoading(true);
@@ -68,6 +76,8 @@ const InventoryList: React.FC = () => {
         source: sourceFilter,
         sku: skuFilter || undefined,
         relatedOrderNo: orderNoFilter || undefined,
+        relatedShipmentNo: shipmentNoFilter || undefined,
+        relatedAfterSaleNo: afterSaleNoFilter || undefined,
         startDate: dateRange?.[0]?.format('YYYY-MM-DD'),
         endDate: dateRange?.[1]?.format('YYYY-MM-DD'),
       });
@@ -82,7 +92,9 @@ const InventoryList: React.FC = () => {
 
   const fetchStockSummary = async () => {
     try {
-      const res = await inventoryApi.getSummary();
+      const res = lowStockFilter
+        ? await inventoryApi.getLowStock(lowStockThreshold)
+        : await inventoryApi.getSummary();
       setStockSummary(res.data);
     } catch (error) {
       // ignore
@@ -107,7 +119,7 @@ const InventoryList: React.FC = () => {
     }
   };
 
-  const handleViewSkuHistory = (sku: string, productName: string) => {
+  const handleViewSkuHistory = (sku: string) => {
     setSelectedSku(sku);
     setSkuHistoryPage(1);
     setSkuDrawerVisible(true);
@@ -141,6 +153,8 @@ const InventoryList: React.FC = () => {
     setTypeFilter(undefined);
     setSourceFilter(undefined);
     setOrderNoFilter('');
+    setShipmentNoFilter('');
+    setAfterSaleNoFilter('');
     setDateRange(null);
     setPage(1);
   };
@@ -151,7 +165,7 @@ const InventoryList: React.FC = () => {
       dataIndex: 'sku',
       key: 'sku',
       render: (sku: string) => (
-        <a onClick={() => handleViewSkuHistory(sku, '')}>{sku}</a>
+        <a onClick={() => handleViewSkuHistory(sku)}>{sku}</a>
       ),
     },
     {
@@ -257,7 +271,25 @@ const InventoryList: React.FC = () => {
         </Col>
       </Row>
 
-      <Card title="库存汇总" extra={<span style={{ fontSize: 12, color: '#999' }}>点击SKU查看流水明细</span>}>
+      <Card
+        title="库存汇总"
+        extra={
+          <Space size="middle">
+            <span style={{ fontSize: 12, color: '#999' }}>点击SKU查看流水明细</span>
+            <Space size="small">
+              <WarningOutlined style={{ color: lowStockFilter ? '#ff4d4f' : '#bfbfbf' }} />
+              <span style={{ fontSize: 12 }}>
+                仅低库存(≤{lowStockThreshold})
+              </span>
+              <Switch
+                size="small"
+                checked={lowStockFilter}
+                onChange={setLowStockFilter}
+              />
+            </Space>
+          </Space>
+        }
+      >
         <Table
           dataSource={stockSummary}
           rowKey="sku"
@@ -268,8 +300,8 @@ const InventoryList: React.FC = () => {
               title: 'SKU', 
               dataIndex: 'sku', 
               key: 'sku',
-              render: (sku: string, record: StockSummary) => (
-                <a onClick={() => handleViewSkuHistory(sku, record.productName)}>
+              render: (sku: string) => (
+                <a onClick={() => handleViewSkuHistory(sku)}>
                   {sku}
                 </a>
               ),
@@ -309,6 +341,26 @@ const InventoryList: React.FC = () => {
               value={orderNoFilter}
               onChange={(e) => {
                 setOrderNoFilter(e.target.value);
+                setPage(1);
+              }}
+            />
+            <Input
+              placeholder="发货单号"
+              allowClear
+              style={{ width: 150 }}
+              value={shipmentNoFilter}
+              onChange={(e) => {
+                setShipmentNoFilter(e.target.value);
+                setPage(1);
+              }}
+            />
+            <Input
+              placeholder="售后单号"
+              allowClear
+              style={{ width: 150 }}
+              value={afterSaleNoFilter}
+              onChange={(e) => {
+                setAfterSaleNoFilter(e.target.value);
                 setPage(1);
               }}
             />

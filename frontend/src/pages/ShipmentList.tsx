@@ -30,11 +30,8 @@ const ShipmentList: React.FC = () => {
   const [pageSize, setPageSize] = useState(10);
   const [statusFilter, setStatusFilter] = useState<ShipmentStatus | undefined>();
   const [modalVisible, setModalVisible] = useState(false);
-  const [shipModalVisible, setShipModalVisible] = useState(false);
   const [editingShipment, setEditingShipment] = useState<Shipment | null>(null);
-  const [shippingId, setShippingId] = useState<number | null>(null);
   const [orders, setOrders] = useState<{ id: number; orderNo: string }[]>([]);
-  const [shipForm] = Form.useForm();
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -58,7 +55,7 @@ const ShipmentList: React.FC = () => {
   const fetchOrders = async () => {
     try {
       const res = await orderApi.getList({ page: 1, pageSize: 100 });
-      setOrders(res.data.data.map(o => ({ id: o.id, orderNo: o.orderNo }));
+      setOrders(res.data.data.map(o => ({ id: o.id, orderNo: o.orderNo })));
     } catch (error) {
       // ignore
     }
@@ -105,18 +102,10 @@ const ShipmentList: React.FC = () => {
     }
   };
 
-  const handleShip = (id: number) => {
-    setShippingId(id);
-    setShipModalVisible(true);
-  };
-
-  const handleShipSubmit = async (values: { sku: string; productName: string; quantity: number }) => {
-    if (!shippingId) return;
+  const handleShip = async (id: number) => {
     try {
-      await shipmentApi.shipWithInventory(shippingId, values);
-      message.success('发货成功，库存已扣减');
-      setShipModalVisible(false);
-      setShippingId(null);
+      await shipmentApi.ship(id);
+      message.success('发货成功，库存已扣减并生成出库流水');
       fetchShipments();
     } catch (error) {
       message.error('发货失败');
@@ -171,6 +160,17 @@ const ShipmentList: React.FC = () => {
       key: 'itemsCount',
     },
     {
+      title: '商品信息',
+      key: 'product',
+      render: (_: unknown, record: Shipment) => (
+        <div>
+          {record.sku && <div>SKU: {record.sku}</div>}
+          {record.productName && <div>名称: {record.productName}</div>}
+          {record.quantity != null && <div>出库数量: {record.quantity}</div>}
+        </div>
+      ),
+    },
+    {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
@@ -197,14 +197,15 @@ const ShipmentList: React.FC = () => {
       render: (_: unknown, record: Shipment) => (
         <Space size="small">
           {record.status === 'pending' && (
-            <Button
-              type="link"
-              size="small"
-              icon={<SendOutlined />}
-              onClick={() => handleShip(record.id)}
-            >
-              发货
-            </Button>
+            <Popconfirm title="确认发货？将自动扣减库存并生成出库流水" onConfirm={() => handleShip(record.id)}>
+              <Button
+                type="link"
+                size="small"
+                icon={<SendOutlined />}
+              >
+                发货
+              </Button>
+            </Popconfirm>
           )}
           {record.status === 'shipped' && (
             <Button
@@ -337,6 +338,27 @@ const ShipmentList: React.FC = () => {
           <InputNumber style={{ width: '100%' }} min={1} placeholder="请输入商品数量" />
         </Form.Item>
         <Form.Item
+          name="sku"
+          label="SKU"
+          rules={[{ required: true, message: '请输入SKU' }]}
+        >
+          <Input placeholder="请输入发货商品SKU（用于扣减库存）" />
+        </Form.Item>
+        <Form.Item
+          name="productName"
+          label="商品名称"
+          rules={[{ required: true, message: '请输入商品名称' }]}
+        >
+          <Input placeholder="请输入商品名称" />
+        </Form.Item>
+        <Form.Item
+          name="quantity"
+          label="出库数量"
+          rules={[{ required: true, message: '请输入出库数量' }]}
+        >
+          <InputNumber style={{ width: '100%' }} min={1} placeholder="请输入出库数量" />
+        </Form.Item>
+        <Form.Item
           name="operator"
           label="操作人"
           rules={[{ required: true, message: '请输入操作人' }]}
@@ -351,52 +373,6 @@ const ShipmentList: React.FC = () => {
             <Button onClick={() => setModalVisible(false)}>取消</Button>
             <Button type="primary" htmlType="submit">
               确定
-            </Button>
-          </Space>
-        </Form.Item>
-      </Form>
-    </Modal>
-
-    <Modal
-      title="发货（扣减库存"
-      open={shipModalVisible}
-      onCancel={() => {
-        setShipModalVisible(false);
-        setShippingId(null);
-      }}
-      footer={null}
-      destroyOnClose
-    >
-      <Form form={shipForm} layout="vertical" onFinish={handleShipSubmit}>
-        <Form.Item
-          name="sku"
-          label="SKU"
-          rules={[{ required: true, message: '请输入SKU' }]}
-        >
-          <Input placeholder="请输入SKU" />
-        </Form.Item>
-        <Form.Item
-          name="productName"
-          label="商品名称"
-          rules={[{ required: true, message: '请输入商品名称' }]}
-        >
-          <Input placeholder="请输入商品名称" />
-        </Form.Item>
-        <Form.Item
-          name="quantity"
-          label="数量"
-          rules={[{ required: true, message: '请输入数量' }]}
-        >
-          <InputNumber style={{ width: '100%' }} min={1} placeholder="请输入数量" />
-        </Form.Item>
-        <Form.Item>
-          <Space style={{ float: 'right' }}>
-            <Button onClick={() => {
-              setShipModalVisible(false);
-              setShippingId(null);
-            }}>取消</Button>
-            <Button type="primary" htmlType="submit">
-              确定发货
             </Button>
           </Space>
         </Form.Item>
