@@ -34,6 +34,9 @@ export class InventoryService {
         stockAfter = stockBefore - createInventoryDto.quantity;
         break;
       case InventoryType.ADJUST:
+        if (createInventoryDto.quantity < 0) {
+          throw new BadRequestException('调整后的库存不能为负数');
+        }
         stockAfter = createInventoryDto.quantity;
         break;
       default:
