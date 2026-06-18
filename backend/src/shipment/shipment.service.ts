@@ -29,6 +29,19 @@ export class ShipmentService {
     const savedShipment = await this.shipmentRepository.save(shipment);
 
     if (createShipmentDto.status === ShipmentStatus.SHIPPED) {
+      if (shipment.sku && shipment.productName && shipment.quantity) {
+        await this.inventoryService.create({
+          sku: shipment.sku,
+          productName: shipment.productName,
+          quantity: shipment.quantity,
+          type: InventoryType.OUT,
+          source: InventorySource.SHIPMENT,
+          relatedOrderNo: order.orderNo,
+          relatedShipmentNo: shipment.shipmentNo,
+          operator: shipment.operator,
+          remark: `订单发货出库 - ${shipment.shipmentNo}`,
+        });
+      }
       await this.orderService.updateStatus(createShipmentDto.orderId, OrderStatus.SHIPPED);
       savedShipment.shippedAt = new Date();
     }
@@ -70,7 +83,47 @@ export class ShipmentService {
 
   async update(id: number, updateShipmentDto: UpdateShipmentDto): Promise<Shipment> {
     const shipment = await this.findOne(id);
+    const oldStatus = shipment.status;
+    const newStatus = updateShipmentDto.status;
+
     Object.assign(shipment, updateShipmentDto);
+
+    if (newStatus && oldStatus !== newStatus) {
+      const hasStockInfo = shipment.sku && shipment.productName && shipment.quantity;
+
+      if (oldStatus !== ShipmentStatus.SHIPPED && newStatus === ShipmentStatus.SHIPPED) {
+        if (hasStockInfo) {
+          await this.inventoryService.create({
+            sku: shipment.sku,
+            productName: shipment.productName,
+            quantity: shipment.quantity,
+            type: InventoryType.OUT,
+            source: InventorySource.SHIPMENT,
+            relatedOrderNo: shipment.order?.orderNo,
+            relatedShipmentNo: shipment.shipmentNo,
+            operator: shipment.operator,
+            remark: `订单发货出库 - ${shipment.shipmentNo}`,
+          });
+        }
+        shipment.shippedAt = new Date();
+        await this.orderService.updateStatus(shipment.orderId, OrderStatus.SHIPPED);
+      } else if (oldStatus === ShipmentStatus.SHIPPED && newStatus !== ShipmentStatus.SHIPPED) {
+        if (hasStockInfo) {
+          await this.inventoryService.create({
+            sku: shipment.sku,
+            productName: shipment.productName,
+            quantity: shipment.quantity,
+            type: InventoryType.IN,
+            source: InventorySource.SHIPMENT,
+            relatedOrderNo: shipment.order?.orderNo,
+            relatedShipmentNo: shipment.shipmentNo,
+            operator: shipment.operator,
+            remark: `发货单状态变更回库 - ${shipment.shipmentNo}`,
+          });
+        }
+      }
+    }
+
     return this.shipmentRepository.save(shipment);
   }
 

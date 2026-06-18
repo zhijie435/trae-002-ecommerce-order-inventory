@@ -312,7 +312,7 @@ const InventoryList: React.FC = () => {
               dataIndex: 'stock',
               key: 'stock',
               render: (value: number) => (
-                <span style={{ color: value <= 10 ? '#ff4d4f' : '#52c41a', fontWeight: 'bold' }}>
+                <span style={{ color: value <= 5 ? '#ff4d4f' : value <= lowStockThreshold ? '#faad14' : '#52c41a', fontWeight: 'bold' }}>
                   {value}
                 </span>
               ),
@@ -532,7 +532,7 @@ const InventoryList: React.FC = () => {
           <Descriptions column={2} size="small">
             <Descriptions.Item label="SKU">{selectedSku}</Descriptions.Item>
             <Descriptions.Item label="当前库存">
-              <span style={{ fontWeight: 'bold', color: skuCurrentStock <= 10 ? '#ff4d4f' : '#52c41a' }}>
+              <span style={{ fontWeight: 'bold', color: skuCurrentStock <= 5 ? '#ff4d4f' : skuCurrentStock <= lowStockThreshold ? '#faad14' : '#52c41a' }}>
                 {skuCurrentStock}
               </span>
             </Descriptions.Item>

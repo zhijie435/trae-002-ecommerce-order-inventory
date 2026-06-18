@@ -5,6 +5,7 @@ import { AfterSale, AfterSaleStatus, AfterSaleType } from './aftersale.entity';
 import { CreateAfterSaleDto } from './dto/create-aftersale.dto';
 import { UpdateAfterSaleDto } from './dto/update-aftersale.dto';
 import { OrderService } from '../order/order.service';
+import { OrderStatus } from '../order/order.entity';
 import { InventoryService } from '../inventory/inventory.service';
 import { InventoryType, InventorySource } from '../inventory/inventory.entity';
 
@@ -182,7 +183,11 @@ export class AfterSaleService {
     afterSale.status = AfterSaleStatus.COMPLETED;
     afterSale.completedAt = new Date();
 
-    return this.afterSaleRepository.save(afterSale);
+    const savedAfterSale = await this.afterSaleRepository.save(afterSale);
+
+    await this.orderService.updateStatus(afterSale.orderId, OrderStatus.CANCELLED);
+
+    return savedAfterSale;
   }
 
   async cancel(id: number): Promise<AfterSale> {
