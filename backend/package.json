@@ -7,9 +7,12 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:cov": "jest --coverage"
+    "test:cov": "jest --coverage",
+    "test:ci": "jest --passWithNoTests"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
