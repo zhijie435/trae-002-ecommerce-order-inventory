@@ -19,10 +19,7 @@ export class AfterSaleService {
 
   async create(createAfterSaleDto: CreateAfterSaleDto): Promise<AfterSale> {
     const order = await this.orderService.findOne(createAfterSaleDto.orderId);
-    if (!order) {
-      throw new NotFoundException(`Order with ID ${createAfterSaleDto.orderId} not found`);
-    }
-
+    
     const afterSale = this.afterSaleRepository.create(createAfterSaleDto);
     return this.afterSaleRepository.save(afterSale);
   }
@@ -78,7 +75,7 @@ export class AfterSaleService {
 
   async approve(id: number): Promise<AfterSale> {
     const afterSale = await this.findOne(id);
-
+    
     if (afterSale.status !== AfterSaleStatus.PENDING) {
       throw new BadRequestException('只有待审核状态的售后单才能审批');
     }
@@ -91,13 +88,9 @@ export class AfterSaleService {
 
   async reject(id: number, rejectReason: string): Promise<AfterSale> {
     const afterSale = await this.findOne(id);
-
+    
     if (afterSale.status !== AfterSaleStatus.PENDING) {
       throw new BadRequestException('只有待审核状态的售后单才能拒绝');
-    }
-
-    if (!rejectReason) {
-      throw new BadRequestException('拒绝原因不能为空');
     }
 
     afterSale.status = AfterSaleStatus.REJECTED;
@@ -108,33 +101,26 @@ export class AfterSaleService {
 
   async processReturn(id: number): Promise<AfterSale> {
     const afterSale = await this.findOne(id);
-
-    if (afterSale.type !== AfterSaleType.RETURN) {
-      throw new BadRequestException('只有退货类型的售后单才能执行退货入库');
-    }
-
-    if (afterSale.status !== AfterSaleStatus.APPROVED && afterSale.status !== AfterSaleStatus.PROCESSING) {
-      throw new BadRequestException('只有已通过或处理中状态的售后单才能执行退货入库');
-    }
-
-    if (!afterSale.sku || !afterSale.productName || !afterSale.quantity) {
-      throw new BadRequestException('售后单缺少商品SKU、名称或数量信息');
+    
+    if (afterSale.status !== AfterSaleStatus.APPROVED || afterSale.type !== AfterSaleType.RETURN) {
+      throw new BadRequestException('只有已通过的退货单才能处理退货入库');
     }
 
     afterSale.status = AfterSaleStatus.PROCESSING;
-    await this.afterSaleRepository.save(afterSale);
 
-    await this.inventoryService.create({
-      sku: afterSale.sku,
-      productName: afterSale.productName,
-      quantity: afterSale.quantity,
-      type: InventoryType.IN,
-      source: InventorySource.AFTERSALE_RETURN,
-      relatedOrderNo: afterSale.order.orderNo,
-      relatedAfterSaleNo: afterSale.afterSaleNo,
-      operator: afterSale.operator,
-      remark: `售后退货入库 - ${afterSale.afterSaleNo}`,
-    });
+    if (afterSale.sku && afterSale.productName && afterSale.quantity) {
+      await this.inventoryService.create({
+        sku: afterSale.sku,
+        productName: afterSale.productName,
+        quantity: afterSale.quantity,
+        type: InventoryType.IN,
+        source: InventorySource.AFTERSALE_RETURN,
+        relatedOrderNo: afterSale.order.orderNo,
+        relatedAfterSaleNo: afterSale.afterSaleNo,
+        operator: afterSale.operator,
+        remark: `售后退货入库 - ${afterSale.afterSaleNo}`,
+      });
+    }
 
     afterSale.status = AfterSaleStatus.COMPLETED;
     afterSale.completedAt = new Date();
@@ -144,51 +130,39 @@ export class AfterSaleService {
 
   async processExchange(id: number, newShipmentNo: string): Promise<AfterSale> {
     const afterSale = await this.findOne(id);
-
-    if (afterSale.type !== AfterSaleType.EXCHANGE) {
-      throw new BadRequestException('只有换货类型的售后单才能执行换货流程');
-    }
-
-    if (afterSale.status !== AfterSaleStatus.APPROVED && afterSale.status !== AfterSaleStatus.PROCESSING) {
-      throw new BadRequestException('只有已通过或处理中状态的售后单才能执行换货流程');
-    }
-
-    if (!afterSale.sku || !afterSale.productName || !afterSale.quantity) {
-      throw new BadRequestException('售后单缺少商品SKU、名称或数量信息');
-    }
-
-    if (!newShipmentNo) {
-      throw new BadRequestException('新发货单号不能为空');
+    
+    if (afterSale.status !== AfterSaleStatus.APPROVED || afterSale.type !== AfterSaleType.EXCHANGE) {
+      throw new BadRequestException('只有已通过的换货单才能处理换货');
     }
 
     afterSale.status = AfterSaleStatus.PROCESSING;
     afterSale.exchangeShipmentNo = newShipmentNo;
-    await this.afterSaleRepository.save(afterSale);
 
-    await this.inventoryService.create({
-      sku: afterSale.sku,
-      productName: afterSale.productName,
-      quantity: afterSale.quantity,
-      type: InventoryType.IN,
-      source: InventorySource.AFTERSALE_RETURN,
-      relatedOrderNo: afterSale.order.orderNo,
-      relatedAfterSaleNo: afterSale.afterSaleNo,
-      operator: afterSale.operator,
-      remark: `售后换货退货入库 - ${afterSale.afterSaleNo}`,
-    });
+    if (afterSale.sku && afterSale.productName && afterSale.quantity) {
+      await this.inventoryService.create({
+        sku: afterSale.sku,
+        productName: afterSale.productName,
+        quantity: afterSale.quantity,
+        type: InventoryType.IN,
+        source: InventorySource.AFTERSALE_RETURN,
+        relatedOrderNo: afterSale.order.orderNo,
+        relatedAfterSaleNo: afterSale.afterSaleNo,
+        operator: afterSale.operator,
+        remark: `售后换货退货入库 - ${afterSale.afterSaleNo}`,
+      });
 
-    await this.inventoryService.create({
-      sku: afterSale.sku,
-      productName: afterSale.productName,
-      quantity: afterSale.quantity,
-      type: InventoryType.OUT,
-      source: InventorySource.AFTERSALE_EXCHANGE,
-      relatedOrderNo: afterSale.order.orderNo,
-      relatedAfterSaleNo: afterSale.afterSaleNo,
-      relatedShipmentNo: newShipmentNo,
-      operator: afterSale.operator,
-      remark: `售后换发出库 - ${afterSale.afterSaleNo}`,
-    });
+      await this.inventoryService.create({
+        sku: afterSale.sku,
+        productName: afterSale.productName,
+        quantity: afterSale.quantity,
+        type: InventoryType.OUT,
+        source: InventorySource.AFTERSALE_EXCHANGE,
+        relatedOrderNo: afterSale.order.orderNo,
+        relatedAfterSaleNo: afterSale.afterSaleNo,
+        operator: afterSale.operator,
+        remark: `售后换货发货出库 - ${afterSale.afterSaleNo}`,
+      });
+    }
 
     afterSale.status = AfterSaleStatus.COMPLETED;
     afterSale.completedAt = new Date();
@@ -198,17 +172,12 @@ export class AfterSaleService {
 
   async processRefund(id: number): Promise<AfterSale> {
     const afterSale = await this.findOne(id);
-
-    if (afterSale.type !== AfterSaleType.REFUND) {
-      throw new BadRequestException('只有退款类型的售后单才能执行退款流程');
-    }
-
-    if (afterSale.status !== AfterSaleStatus.APPROVED && afterSale.status !== AfterSaleStatus.PROCESSING) {
-      throw new BadRequestException('只有已通过或处理中状态的售后单才能执行退款流程');
+    
+    if (afterSale.status !== AfterSaleStatus.APPROVED || afterSale.type !== AfterSaleType.REFUND) {
+      throw new BadRequestException('只有已通过的退款单才能处理退款');
     }
 
     afterSale.status = AfterSaleStatus.PROCESSING;
-    await this.afterSaleRepository.save(afterSale);
 
     afterSale.status = AfterSaleStatus.COMPLETED;
     afterSale.completedAt = new Date();
@@ -218,8 +187,10 @@ export class AfterSaleService {
 
   async cancel(id: number): Promise<AfterSale> {
     const afterSale = await this.findOne(id);
-
-    if (afterSale.status === AfterSaleStatus.COMPLETED || afterSale.status === AfterSaleStatus.CANCELLED) {
+    
+    if (afterSale.status === AfterSaleStatus.COMPLETED || 
+        afterSale.status === AfterSaleStatus.REJECTED ||
+        afterSale.status === AfterSaleStatus.CANCELLED) {
       throw new BadRequestException('该状态的售后单无法取消');
     }
 
