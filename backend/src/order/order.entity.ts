@@ -10,6 +10,14 @@ export enum OrderStatus {
   CANCELLED = 'cancelled',
 }
 
+export const ORDER_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+  [OrderStatus.PENDING]: [OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.CANCELLED],
+  [OrderStatus.PAID]: [OrderStatus.SHIPPED, OrderStatus.CANCELLED],
+  [OrderStatus.SHIPPED]: [OrderStatus.COMPLETED, OrderStatus.CANCELLED],
+  [OrderStatus.COMPLETED]: [OrderStatus.CANCELLED],
+  [OrderStatus.CANCELLED]: [],
+};
+
 @Entity()
 export class Order {
   @PrimaryGeneratedColumn()
